@@ -55,7 +55,7 @@ def nouvelles_sources(matrice):
 def colonisation(matrice):
     
    # sources non-occupées par des nématodes (sites dont les fréquences=0 et dont le score = score nouvelle source)
-   sources_non_decouvertes = (matrice[nb_alleles,:]==score_nouvelle_source+1)  
+   sources_non_decouvertes = (matrice[nb_alleles,:]==score_nouvelle_source+1) 
    # sources en migration (entre -1 et -19)
    sources_en_migration = (matrice[nb_alleles,:]<score_migration)*(matrice[nb_alleles,:]>score_pas_de_source)
    
@@ -78,38 +78,64 @@ def colonisation(matrice):
                        sources_colonisatrices = np.append(sources_colonisatrices, [j])
                        sources_colonisatrices = sources_colonisatrices.astype(int)
     
-           # Somme des fréquences des sources colonisatrices (si pas de sources colo, ce vect = (0,0))        
+           # Fréquences sur l'ensemble des sources colonisatrices (si pas de sources colo, ce vect = (0,0))        
            vecteur_allele = np.sum(matrice[0:nb_alleles,sources_colonisatrices], axis=1)
+           
            if sum(vecteur_allele) != 0 :
                # Rajout des fréquences sur la source colonisée
-               matrice[0:nb_alleles,k] = vecteur_allele/sum(vecteur_allele) 
+               
+               # Méthode déterministe
+               if type_colonisation == 'deterministe' : 
+                   matrice[0:nb_alleles,k] = vecteur_allele/np.sum(vecteur_allele)
+                   
+               # Avec une loi de poisson
+               if type_colonisation == 'stochastique' : 
+                   # Nombre de parents de la nouvelle source (on en veut au moins un !)
+                   nb_parents = np.random.poisson(lamb) 
+                   while nb_parents == 0 : nb_parents = np.random.poisson(lamb)         
+                   # Choix des allèles de ces parents dans la jauge totale de toutes les sources colonisatrices (loi multinomiale)    
+                   # Le vecteur alleles_parents contient à chaque indice, le nombre de parents portant l'allèle correspondant à l'indice.
+                   alleles_parents = np.random.multinomial(nb_parents, vecteur_allele/np.sum(vecteur_allele))    
+                   # Les proportions dans la sous-population des parents devient la jauge de la nouvelle source
+                   matrice[0:nb_alleles,k] = alleles_parents/np.sum(alleles_parents)
+                   if np.isnan(matrice[0:nb_alleles,k]).any() :
+                       print(matrice[0:nb_alleles,k], 'position', k, 'vecteur_allele', vecteur_allele, 'nb_parents', nb_parents)
                # Le score de la source colonisée devient 5,5 
                matrice[nb_alleles,k] = score_nouvelle_source+0.5           
 
    return(matrice)
-  
-
 
 
 # Fonction temps
 def pas_de_temps(matrice):
-    
-   # sources de score 10 occupées par des nématodes
-   sources_découvertes = (matrice[nb_alleles,:]==score_nouvelle_source+0.5)   
+   
+   if jauges_partout == 'non' :
+        # On enlève les jauges des sources dont le score est de -19 (qui vont passer à -20 et disparaître)
+        sources_disparues = (matrice[nb_alleles,:]==score_pas_de_source+1)
+        if sum(sources_disparues) != 0 :
+            matrice[0:2,sources_disparues]=np.zeros((2,sum(sources_disparues)))
+  
+   # sources de score 6 occupées par des nématodes
+   sources_decouvertes = (matrice[nb_alleles,:]==score_nouvelle_source+0.5)   
    # sources ayant des scores entre 5 et -19
    sources_actives = (matrice[nb_alleles,:]>score_pas_de_source)*(matrice[nb_alleles,:]<=score_nouvelle_source)
     
    # Diminution des scores de 1
-   matrice[nb_alleles,sources_découvertes]=matrice[nb_alleles,sources_découvertes]-0.5 
-   matrice[nb_alleles,sources_actives]=matrice[nb_alleles,sources_actives]-1    
-      
+   matrice[nb_alleles,sources_decouvertes]=matrice[nb_alleles,sources_decouvertes]-0.5 
+   matrice[nb_alleles,sources_actives]=matrice[nb_alleles,sources_actives]-1 
+   
+   # Gestion des sources non colonisées : certaines restent, d'autres disparaissent (avec une proba q à chaque pas de temps)
+   sources_non_colonisees = (matrice[nb_alleles,:]==score_nouvelle_source+1)
+   # Ajout de -26 au score des sources qui vont disparaître (6 -> -20). Ces sources sont tirées selon une proba q (proba_disparition_nourriture).
+   matrice[nb_alleles, sources_non_colonisees] = matrice[nb_alleles,sources_non_colonisees] +   np.random.binomial(1,proba_disparition_nourriture, sum(sources_non_colonisees))*(score_pas_de_source-score_nouvelle_source-1) 
+ 
    return(matrice)
    
       
    
    
 # Fontion d'évolution en fonction du temps (très détaillée)
-def evolution_detail(nb_sites, nb_alleles, temps, chaque_temps):
+def evolution_detail(nb_sites, nb_alleles, temps):
     matrice = initialisation(nb_sites, nb_alleles)
     print ("Environnement au temps initial")
     print(matrice)
@@ -125,9 +151,9 @@ def evolution_detail(nb_sites, nb_alleles, temps, chaque_temps):
         matrice = pas_de_temps(matrice)
         print("Pas de temps")
         print(matrice)
-        if chaque_temps == 1 :
+        if affiche_tous_les_histogrammes=='oui' :
             histogramme(matrice)
-    if chaque_temps == 0 :
+    if affiche_tous_les_histogrammes=='non' :
         histogramme(matrice)
     print ("Environnement au temps final")
     return(np.around(matrice, decimals=2))
@@ -136,7 +162,7 @@ def evolution_detail(nb_sites, nb_alleles, temps, chaque_temps):
     
     
 # Fontion d'évolution en fonction du temps (juste histogrammes)
-def evolution(nb_sites, nb_alleles, temps, chaque_temps):
+def evolution(nb_sites, nb_alleles, temps):
     matrice = initialisation(nb_sites, nb_alleles)
     histogramme(matrice)
     print ("Environnement au temps initial")
@@ -144,16 +170,15 @@ def evolution(nb_sites, nb_alleles, temps, chaque_temps):
         matrice = nouvelles_sources(matrice)
         matrice = colonisation(matrice)   
         matrice = pas_de_temps(matrice)
-        if chaque_temps == 1 :
+        if affiche_tous_les_histogrammes=='oui' :
             histogramme(matrice)
-    if chaque_temps == 0 :
+            print ("Environnement au temps %i" %i)
+    if affiche_tous_les_histogrammes=='non':
         histogramme(matrice)
     print ("Environnement au temps final")
-    return(np.around(matrice, decimals=2))
-    
+    return(np.around(matrice, decimals=1))
 
-    
-  
+
 # =============================================================================
 # Illustration
 # =============================================================================
@@ -189,26 +214,35 @@ def histogramme(matrice):
 # Etude de l'évolution de la répartition des allèles en temps
 # =============================================================================
 
-nb_sites = 20                 # Nombres de sites dans l'environnement
-nb_alleles = 2                # Nombres d'allèles étudiés
+nb_sites = 100               # Nombres de sites dans l'environnement
+nb_alleles = 2              # Nombres d'allèles étudiés
 
-proba_nourriture = 0.4        # Proba d'pparition de la nourriture     
+proba_nourriture = 0.7            # Proba d'pparition de la nourriture   
+proba_disparition_nourriture = 0  # Proba qu'une source non colonisée disparaisse   
 
 score_nouvelle_source = 5     # Score des sources 
 score_migration = 0
 score_pas_de_source = -20
 
-rayon_migration = 10          # distance maximum qu'un vers peut atteindre en migrant à partir de sa colonie
+rayon_migration = 20      # Distance maximale qu'un vers peut atteindre en migrant à partir de sa colonie
  
-temps = 20                    # Intervalle de temps étudié
+temps = 500               # Intervalle de temps étudié
+
+type_colonisation = 'stochastique'   # Methode pour coloniser une nouvelle jauge : 'deterministe' = moyenne des fréquence, 'stochastique' = choix des parents par loi de poisson
+lamb = 3                             # Dans le cas : type_colonisation = 'stochastique', paramètre de la loi de poisson qui choisit le nb de parents
 
 
 
+####################################### ENLEVER LE PROBLEME HUSTON ##########################################
 
-# Pour avoir toutes les matrices après chaque action et les histogrammes à chaque temps.
-# evolution_detail(nb_sites, nb_alleles, temps, 1)    # 1 pour avoir l'histogramme à chaque temps, 0 sinon (juste début et fin).
+
+jauges_partout = 'non'                     # Afficher des jauges partout (garde en mémoire la dernière population ayant occupé le site)
+affiche_tous_les_histogrammes = 'non'      # Afficher les histogrammes à chaque pas de temps.  
 
 # Pour avoir les histogrammes uniquement.
-evolution(nb_sites, nb_alleles, temps, 0)    # 1 pour avoir l'histogramme à chaque temps, 0 sinon (juste début et fin).
-    
- 
+evolution(nb_sites, nb_alleles, temps)   
+
+
+# VERIFICATION
+# Pour avoir toutes les matrices après chaque action.
+# evolution_detail(nb_sites, nb_alleles, temps)    
