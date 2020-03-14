@@ -23,8 +23,8 @@ def initialisation(nb_sites, nb_alleles) :
     # Positions des nouvelles sources
     positions_nouvelles_sources = np.random.binomial(1, proba_nourriture, nb_sites)  
     # Score des nouvelles sources (entre 0 et 5)
-    matrice0[nb_alleles] = positions_nouvelles_sources*np.random.randint(score_migration, score_nouvelle_source+1, nb_sites)
-    # Mise à -5 des autres sources
+    matrice0[nb_alleles] = positions_nouvelles_sources*np.random.randint(score_pas_de_source, score_nouvelle_source+1, nb_sites)
+    # Mise à -20 des autres sources
     matrice0[nb_alleles, positions_nouvelles_sources==0] = score_pas_de_source
     
     # Position des allèles (moit'-moit') sur les sources
@@ -67,16 +67,15 @@ def colonisation(matrice):
            sources_colonisatrices = []
            
            # En énumérant les sources en migration se situant dans le rayon de migration
-           borne_min = max(k+score_pas_de_source,0)
-           borne_max = min(k-score_pas_de_source,nb_sites-1)  
+           borne_min = max(k+score_pas_de_source, k-rayon_migration, 0)
+           borne_max = min(k-score_pas_de_source, k+rayon_migration, nb_sites-1)  
            for j in np.transpose(np.where(sources_en_migration[borne_min:borne_max+1])) :  # attention indice fin non compris
                j = borne_min + int(j)
                
                # si la distance <= score migration et si elle ne dépasse pas le rayon de migration
                if abs(j-k) <= -matrice[nb_alleles,j] :
-                   if abs(j-k) <= rayon_migration :
-                       sources_colonisatrices = np.append(sources_colonisatrices, [j])
-                       sources_colonisatrices = sources_colonisatrices.astype(int)
+                   sources_colonisatrices = np.append(sources_colonisatrices, [j])
+                   sources_colonisatrices = sources_colonisatrices.astype(int)
     
            # Fréquences sur l'ensemble des sources colonisatrices (si pas de sources colo, ce vect = (0,0))        
            vecteur_allele = np.sum(matrice[0:nb_alleles,sources_colonisatrices], axis=1)
@@ -98,12 +97,12 @@ def colonisation(matrice):
                    alleles_parents = np.random.multinomial(nb_parents, vecteur_allele/np.sum(vecteur_allele))    
                    # Les proportions dans la sous-population des parents devient la jauge de la nouvelle source
                    matrice[0:nb_alleles,k] = alleles_parents/np.sum(alleles_parents)
-                   if np.isnan(matrice[0:nb_alleles,k]).any() :
-                       print(matrice[0:nb_alleles,k], 'position', k, 'vecteur_allele', vecteur_allele, 'nb_parents', nb_parents)
-               # Le score de la source colonisée devient 5,5 
+                   # Le score de la source colonisée devient 5,5 
                matrice[nb_alleles,k] = score_nouvelle_source+0.5           
 
    return(matrice)
+
+
 
 
 # Fonction temps
@@ -113,7 +112,7 @@ def pas_de_temps(matrice):
         # On enlève les jauges des sources dont le score est de -19 (qui vont passer à -20 et disparaître)
         sources_disparues = (matrice[nb_alleles,:]==score_pas_de_source+1)
         if sum(sources_disparues) != 0 :
-            matrice[0:2,sources_disparues]=np.zeros((2,sum(sources_disparues)))
+            matrice[0:nb_alleles,sources_disparues]=np.zeros((nb_alleles,sum(sources_disparues)))
   
    # sources de score 6 occupées par des nématodes
    sources_decouvertes = (matrice[nb_alleles,:]==score_nouvelle_source+0.5)   
@@ -177,6 +176,75 @@ def evolution(nb_sites, nb_alleles, temps):
         histogramme(matrice)
     print ("Environnement au temps final")
     return(np.around(matrice, decimals=1))
+    
+
+
+
+
+
+
+
+# =============================================================================
+# Simulation des hivers (une partie de la population meurt)
+# =============================================================================
+    
+    
+    
+# Retourne la matrice initiale au printemps,  
+# qui contient uniquement les jauges encore présentes si jauge = 'complete', 
+# qui contient uniquement un individu pour chaque jauge encore présente si jauge = 'unie'
+# /!\ ne fonctionne qu'avec deux allèles
+def matrice_printemps(matrice, jauge):
+    #Position des nouvelles sources pour la nouvelle année
+    apparition_sources = np.random.binomial(1, proba_nourriture, nb_sites)  # Donne les emplacements où nouvelle nourriture
+    jauge_existante = sum(matrice[0:nb_alleles,:]) != 0                     # Donne les emplacement où une jauge était présente
+    positions_nouvelles_sources = apparition_sources*jauge_existante
+    #Age des nouvelles sources mis à jour directement sur la matrice
+    matrice[nb_alleles] = positions_nouvelles_sources*np.random.randint(score_migration, score_nouvelle_source+1, nb_sites)
+    #On efface la jauge sur les sites sans nouvelle source
+    matrice[0:nb_alleles, positions_nouvelles_sources==0] = 0
+    # Mise à -20 des autres sources
+    matrice[nb_alleles, positions_nouvelles_sources==0] = score_pas_de_source
+    
+    if jauge == 'unie' : 
+        #On tire au hasard l'allèle qui occupe les nouvelles sources en fonction de la jauge précédente
+        matrice[0, positions_nouvelles_sources==1] = np.random.binomial(1, matrice[0, positions_nouvelles_sources==1], len(matrice[0,positions_nouvelles_sources==1]))
+        matrice[1, positions_nouvelles_sources==1] = 1-matrice[0,positions_nouvelles_sources==1]
+    return(matrice)
+
+
+
+
+# Fonction d'évolution en fonction du temps et de la matrice initiale fournie à chaque printemps (ne trace rien)
+def evolution_itere(matrice):
+    for i in range(0,temps) :
+        matrice = nouvelles_sources(matrice)
+        matrice = colonisation(matrice)
+        matrice = pas_de_temps(matrice)
+    return(np.around(matrice, decimals=4))
+
+
+
+
+# Dessine l'histogramme avant et après chaque hiver
+def evolution_annees(nb_sites, nb_alleles, nb_annees, temps_annees):
+    matrice = initialisation(nb_sites, nb_alleles)
+    histogramme(matrice)
+    print("Environnement au début de l'année 0")
+    matrice = evolution_itere(matrice)
+    histogramme(matrice)
+    print ("Environnement à la fin de l'année 0")
+    for i in range(1,nb_annees+1):
+        matrice = matrice_printemps(matrice, jauge)
+        histogramme(matrice)
+        print("Environnement au début de l'année %i" %i)
+        matrice = evolution_itere(matrice)
+        histogramme(matrice)
+        print ("Environnement à la fin de l'année %i" %i)
+    return(matrice)
+
+
+
 
 
 # =============================================================================
@@ -186,6 +254,7 @@ def evolution(nb_sites, nb_alleles, temps):
     
 # Fonction pour tracer les graphiques
 def graphique(matrice):
+    plt.figure()
     positions = np.arange(nb_sites)
     p1=plt.plot(positions, matrice[0,:], marker='o')
     p2=plt.plot(positions, matrice[1,:], marker='v')
@@ -196,6 +265,7 @@ def graphique(matrice):
     
 # Fontion pour tracer les histogrammes
 def histogramme(matrice):
+    plt.figure()
     positions = np.arange(nb_sites)
     bins = [x - 0.5 for x in range(0, nb_sites+1)]
     plt.hist([positions, positions], bins = bins, weights = [matrice[0,:]*100, matrice[1,:]*100],
@@ -214,35 +284,44 @@ def histogramme(matrice):
 # Etude de l'évolution de la répartition des allèles en temps
 # =============================================================================
 
-nb_sites = 100               # Nombres de sites dans l'environnement
+nb_sites = 100              # Nombres de sites dans l'environnement
 nb_alleles = 2              # Nombres d'allèles étudiés
 
-proba_nourriture = 0.7            # Proba d'pparition de la nourriture   
-proba_disparition_nourriture = 0  # Proba qu'une source non colonisée disparaisse   
+proba_nourriture = 0.2               # Proba d'pparition de la nourriture   
+proba_disparition_nourriture = 0.1  # Proba qu'une source non colonisée disparaisse   
 
-score_nouvelle_source = 5     # Score des sources 
+score_nouvelle_source = 3     # Score des sources 
 score_migration = 0
-score_pas_de_source = -20
+score_pas_de_source = -30
 
-rayon_migration = 20      # Distance maximale qu'un vers peut atteindre en migrant à partir de sa colonie
+rayon_migration = 5       # Distance maximale qu'un vers peut atteindre en migrant à partir de sa colonie
  
-temps = 500               # Intervalle de temps étudié
+temps = 600               # Intervalle de temps étudié
 
 type_colonisation = 'stochastique'   # Methode pour coloniser une nouvelle jauge : 'deterministe' = moyenne des fréquence, 'stochastique' = choix des parents par loi de poisson
-lamb = 3                             # Dans le cas : type_colonisation = 'stochastique', paramètre de la loi de poisson qui choisit le nb de parents
-
-
-
-####################################### ENLEVER LE PROBLEME HUSTON ##########################################
+lamb = 4                             # Dans le cas : type_colonisation = 'stochastique', paramètre de la loi de poisson qui choisit le nb de parents
 
 
 jauges_partout = 'non'                     # Afficher des jauges partout (garde en mémoire la dernière population ayant occupé le site)
 affiche_tous_les_histogrammes = 'non'      # Afficher les histogrammes à chaque pas de temps.  
 
-# Pour avoir les histogrammes uniquement.
-evolution(nb_sites, nb_alleles, temps)   
+
+nb_annees  = 5
+temps_annees = 120
+jauge = 'unie'             # 'unie' : A chaque printemps, on ne prends en compte qu'un individu par jauges encore présentes.
+                               # 'complete' :  A chaque printemps, on ne prends en compte que les jauges encore présentes.
+
+
+
+
+# Temps continu (sans prendre en compte l'hiver)
+matrice_1 = evolution(nb_sites, nb_alleles, temps)   
+
+# Pour voir l'évolution sur plusieurs années (entre-coupées d'hivers)
+matrice_2 = evolution_annees(nb_sites, nb_alleles, nb_annees, temps_annees)
 
 
 # VERIFICATION
 # Pour avoir toutes les matrices après chaque action.
 # evolution_detail(nb_sites, nb_alleles, temps)    
+
