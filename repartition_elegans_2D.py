@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Modèle Projet
+Modèle décrivant la répartition des nématodes C.Elegans en deux dimensions.
 """
 
 # =============================================================================
