@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Modèle décrivant la répartition des nématodes C.Elegans en deux dimensions.
+Modèle décrivant la répartition des nématodes C.Elegans en deux dimension.
 """
 
 # =============================================================================
@@ -15,25 +15,25 @@ import seaborn as sns
 # =============================================================================
 
 
-# Fonction d'initialisation  : On ne commence qu'avec des sources qui ne sont pas encore en âge de migrer (entre 5 et 0)
+# Fonction d'initialisation  : 
 def initialisation(nb_sites_horizontal, nb_sites_vertical, nb_alleles) :
     nb_sites = nb_sites_vertical*nb_sites_horizontal
     # Initialisation de la matrice (que des zéros)
     matrice0 = np.zeros((nb_sites_vertical, nb_sites_horizontal, nb_alleles+1))  
-    # Positions des nouvelles sources
-    positions_nouvelles_sources = np.random.binomial(1, proba_nourriture, nb_sites)  
-    # Score des nouvelles sources (entre 0 et 5)
-    ages_sources = positions_nouvelles_sources*np.random.randint(score_pas_de_source, score_nouvelle_source+1, nb_sites)
-    # Mise à -20 des autres sources
-    ages_sources[positions_nouvelles_sources==0] = score_pas_de_source
+    # Positions des sources
+    positions_sources = np.random.binomial(1, proba_nourriture, nb_sites)  
+    # Score des sources (entre -29 et 3)
+    ages_sources = positions_sources*np.random.randint(score_pas_de_source+1, score_nouvelle_source+1, nb_sites)
+    # Mise à -30 des autres sources
+    ages_sources[positions_sources==0] = score_pas_de_source
     # Intégration dans le dernier élément des uplets de la matrice 
     matrice0[:,:,nb_alleles] = np.reshape(ages_sources, (nb_sites_vertical, nb_sites_horizontal))
     
     # Position des allèles (moit'-moit') sur les sources
     moitie_1 = range(0, int(nb_sites_horizontal/2))
     moitie_2 = range(int(nb_sites_horizontal/2), nb_sites_horizontal)
-    matrice0[:, moitie_1, 0] = np.reshape(positions_nouvelles_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_1]
-    matrice0[:, moitie_2, 1] = np.reshape(positions_nouvelles_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_2]
+    matrice0[:, moitie_1, 0] = np.reshape(positions_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_1]
+    matrice0[:, moitie_2, 1] = np.reshape(positions_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_2]
     return(matrice0)
 
 
@@ -44,10 +44,10 @@ def nouvelles_sources(matrice):
     # Positions des nouvelles sources 
     nouvelles_sources = np.random.binomial(1, proba_nourriture, nb_sites_vertical*nb_sites_horizontal)
     nouvelles_sources = np.reshape(nouvelles_sources, (nb_sites_vertical, nb_sites_horizontal))
-    # Emplacements sans sources (de score -20)
+    # Emplacements sans sources (de score -30)
     emplacements_vides = (matrice[:, :, nb_alleles] == score_pas_de_source)
     
-    # Emplacements des nouvelles sources dans les places vides, fois 6 (score nouvelle source non colonisée = score nouvelle source + 1)
+    # Emplacements des nouvelles sources dans les places vides, fois 4 (score nouvelle source non colonisée = score nouvelle source + 1)
     matrice[:,:,nb_alleles] = matrice[:,:,nb_alleles] + (nouvelles_sources*emplacements_vides)*(score_nouvelle_source-score_pas_de_source+1)
     return(matrice)
  
@@ -58,7 +58,7 @@ def colonisation(matrice):
     
    # sources non-occupées par des nématodes (sites dont les fréquences = 0 et dont le score = score nouvelle source + 1)
    sources_non_decouvertes = (matrice[:,:,nb_alleles]==score_nouvelle_source+1) 
-   # sources en migration (entre -1 et -19)
+   # sources en migration (entre -1 et -29)
    sources_en_migration = (matrice[:,:,nb_alleles]<score_migration)*(matrice[:,:,nb_alleles]>score_pas_de_source)
 
    # S'il y a des sources en migration ET des sources non découvertes...
@@ -105,7 +105,7 @@ def colonisation(matrice):
                    alleles_parents = np.random.multinomial(nb_parents, vecteur_allele/np.sum(vecteur_allele))    
                    # Les proportions dans la sous-population des parents devient la jauge de la nouvelle source
                    matrice[k[0],k[1],0:nb_alleles] = alleles_parents/np.sum(alleles_parents)
-                   # Le score de la source colonisée devient 5,5 
+                   # Le score de la source colonisée devient 3.5 
                matrice[k[0],k[1],nb_alleles] = score_nouvelle_source+0.5           
 
    return(matrice)
@@ -122,9 +122,9 @@ def pas_de_temps(matrice):
         if np.sum(sources_disparues) != 0 :
             matrice[sources_disparues,0:nb_alleles]=np.zeros((np.sum(sources_disparues),2))
   
-   # sources de score 6 occupées par des nématodes
+   # sources de score 4 occupées par des nématodes
    sources_decouvertes = (matrice[:,:,nb_alleles]==score_nouvelle_source+0.5)   
-   # sources ayant des scores entre 5 et -19 sources_disparues
+   # sources ayant des scores entre 3 et -29 
    sources_actives = (matrice[:,:,nb_alleles]>score_pas_de_source)*(matrice[:,:,nb_alleles]<=score_nouvelle_source)
     
    # Diminution des scores de 1
@@ -133,7 +133,7 @@ def pas_de_temps(matrice):
    
    # Gestion des sources non colonisées : certaines restent, d'autres disparaissent (avec une proba q à chaque pas de temps)
    sources_non_colonisees = (matrice[:,:,nb_alleles]==score_nouvelle_source+1)
-   # Ajout de -26 au score des sources qui vont disparaître (6 -> -20). Ces sources sont tirées selon une proba q (proba_disparition_nourriture).
+   # Ajout de -34 au score des sources qui vont disparaître (4 -> -30). Ces sources sont tirées selon une proba q (proba_disparition_nourriture).
    matrice[sources_non_colonisees, nb_alleles] = matrice[sources_non_colonisees,nb_alleles] + np.random.binomial(1,proba_disparition_nourriture, np.sum(sources_non_colonisees))*(score_pas_de_source-score_nouvelle_source-1) 
  
    return(matrice)
@@ -210,11 +210,11 @@ def matrice_printemps(matrice, jauge):
     matrice[:,:,nb_alleles] = positions_nouvelles_sources*np.reshape(np.random.randint(score_migration, score_nouvelle_source+1, nb_sites), (nb_sites_vertical, nb_sites_horizontal))
     # On efface la jauge sur les sites sans nouvelle source
     matrice[positions_nouvelles_sources==0,0:nb_alleles] = 0
-    # Mise à -20 des autres sources
+    # Mise à -30 des autres sources
     matrice[positions_nouvelles_sources==0, nb_alleles] = score_pas_de_source 
     
     if jauge == 'unie' : 
-        #On tire au hasard l'allèle qui occupe les nouvelles sources en fonction de la jauge précédente
+        # On tire au hasard l'allèle qui occupe les nouvelles sources en fonction de la jauge précédente
         matrice[positions_nouvelles_sources==1,0] = np.random.binomial(1,matrice[positions_nouvelles_sources==1,0],len(matrice[positions_nouvelles_sources==1,0]))
         matrice[positions_nouvelles_sources==1,1] = 1-matrice[positions_nouvelles_sources==1,0]
     return(matrice)
