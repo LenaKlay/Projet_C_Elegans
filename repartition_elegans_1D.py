@@ -269,6 +269,7 @@ def histogramme(matrice):
     bins = [x - 0.5 for x in range(0, nb_sites+1)]
     plt.hist([positions, positions], bins = bins, weights = [matrice[0,:]*100, matrice[1,:]*100],
             edgecolor = 'black', histtype = 'barstacked', label = ['allèle 1', 'allèle 2'])
+    plt.ylim(0, 100)
     plt.ylabel('Pourcentage')
     plt.xlabel('Sites')
     plt.title('Répartition des allèles (en %)')
