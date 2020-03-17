@@ -34,9 +34,9 @@ def initialisation(nb_sites_horizontal, nb_sites_vertical, nb_alleles) :
     moitie_2 = range(int(nb_sites_horizontal/2), nb_sites_horizontal)
     matrice0[:, moitie_1, 0] = np.reshape(positions_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_1]
     matrice0[:, moitie_2, 1] = np.reshape(positions_sources, (nb_sites_vertical, nb_sites_horizontal))[:, moitie_2]
+    
     return(matrice0)
-
-
+    
 
    
 # Fonction d'apparition des nouvelles sources
@@ -191,16 +191,16 @@ def evolution(nb_sites_horizontal, nb_sites_vertical, nb_alleles, temps):
     
     
 # =============================================================================
-# Simulation des hivers (une partie de la population meurt)
+# Simulation des &nnées (une partie de la population meurt entre décembre et septembre)
 # =============================================================================
 
 
     
-# Retourne la matrice initiale au printemps,  
+# Retourne la matrice initiale au début septembre,  
 # qui contient uniquement les jauges encore présentes si jauge = 'complete', 
 # qui contient uniquement un individu pour chaque jauge encore présente si jauge = 'unie'
 # /!\ ne fonctionne qu'avec deux allèles
-def matrice_printemps(matrice, jauge):
+def matrice_septembre(matrice, jauge):
     nb_sites = nb_sites_vertical*nb_sites_horizontal
     # Position des nouvelles sources pour la nouvelle année
     apparition_sources = np.reshape(np.random.binomial(1, proba_nourriture, nb_sites), (nb_sites_vertical, nb_sites_horizontal))  # Donne les emplacements où nouvelle nourriture
@@ -221,7 +221,7 @@ def matrice_printemps(matrice, jauge):
 
 
 
-# Fonction d'évolution en fonction du temps et de la matrice initiale fournie à chaque printemps (ne trace rien)
+# Fonction d'évolution en fonction du temps et de la matrice initiale fournie à chaque début septembre (ne trace rien)
 def evolution_itere(matrice):
     for i in range(0,temps) :
         matrice = nouvelles_sources(matrice)
@@ -231,16 +231,16 @@ def evolution_itere(matrice):
 
 
 
-# Dessine l'histogramme avant et après chaque hiver
+# Dessine l'histogramme avant et après chaque automne
 def evolution_annees(nb_sites_horizontal, nb_sites_vertical, nb_alleles, nb_annees, temps_annees, jauge):
     matrice = initialisation(nb_sites_horizontal, nb_sites_vertical,  nb_alleles)
     couleur(matrice, nb_alleles)
-    print("Environnement au début de l'année 0")
+    print("Environnement au début de l'année 1")
     matrice = evolution_itere(matrice)
     couleur(matrice, nb_alleles)
-    print ("Environnement à la fin de l'année 0")
-    for i in range(1,nb_annees+1):
-        matrice = matrice_printemps(matrice, jauge)
+    print ("Environnement à la fin de l'année 1")
+    for i in range(2,nb_annees+1):
+        matrice = matrice_septembre(matrice, jauge)
         couleur(matrice, nb_alleles)
         print("Environnement au début de l'année %i" %i)
         matrice = evolution_itere(matrice)
@@ -279,7 +279,7 @@ nb_sites_horizontal = 50     # Nombres de sites en largeur (verger)             
 nb_alleles = 2               # Nombres d'allèles étudiés
 
 proba_nourriture = 0.2               # Proba d'pparition de la nourriture   
-proba_disparition_nourriture = 0.05  # Proba qu'une source non colonisée disparaisse   
+proba_disparition_nourriture = 0.1   # Proba qu'une source non colonisée disparaisse   
 
 score_nouvelle_source = 3     # Score des sources 
 score_migration = 0
@@ -287,7 +287,7 @@ score_pas_de_source = -30
 
 rayon_migration = 5       # Distance maximale qu'un vers peut atteindre en migrant à partir de sa colonie
  
-temps = 100               # Intervalle de temps étudié
+temps = 600               # Intervalle de temps étudié
 
 type_colonisation = 'stochastique'   # Methode pour coloniser une nouvelle jauge : 'deterministe' = moyenne des fréquence, 'stochastique' = choix des parents par loi de poisson
 lamb = 4                            # Dans le cas : type_colonisation = 'stochastique', paramètre de la loi de poisson qui choisit le nb de parents
@@ -299,8 +299,8 @@ affiche_tous_les_histogrammes = 'non'      # Afficher les histogrammes à chaque
 
 nb_annees  = 5
 temps_annees = 120
-jauge = 'unie'             # 'unie' : A chaque printemps, on ne prends en compte qu'un individu par jauges encore présentes.
-                           # 'complete' :  A chaque printemps, on ne prends en compte que les jauges encore présentes.
+jauge = 'unie'             # 'unie' : A chaque début septembre, on ne prends en compte qu'un individu par jauges encore présentes.
+                           # 'complete' :  A chaque début septembre, on ne prends en compte que les jauges encore présentes.
 
 
 
@@ -308,9 +308,9 @@ jauge = 'unie'             # 'unie' : A chaque printemps, on ne prends en compte
 
 
 
-# Pour avoir les histogrammes uniquement.
+# Temps continu (sans interruption temporelle)
 matrice_1 = evolution(nb_sites_horizontal, nb_sites_vertical, nb_alleles, temps)   
-# Pour voir l'évolution sur plusieurs années (entre-coupées d'hivers)
+# Pour voir l'évolution sur plusieurs années (entre-coupées de 8 mois de non-évolution)
 matrice_2 = evolution_annees(nb_sites_horizontal, nb_sites_vertical, nb_alleles, nb_annees, temps_annees, jauge)
 
 
