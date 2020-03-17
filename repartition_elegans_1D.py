@@ -26,15 +26,20 @@ def initialisation(nb_sites, nb_alleles) :
     # Mise à -30 des autres sources
     matrice0[nb_alleles, positions_sources==0] = score_pas_de_source
     
-    # Position des allèles (moit'-moit') sur les sources
-    moitie_1 = range(0, int(nb_sites/2))
-    moitie_2 = range(int(nb_sites/2), nb_sites)
+    
+    if condition_initiale == 'moitie' :             # Pour avoir une répartition moitié-moitié des allèles
+        moitie_1 = range(0, int(nb_sites/2))
+        moitie_2 = range(int(nb_sites/2), nb_sites)
+    if condition_initiale == 'alternee' :           # Pour avoir une répartition alternée des allèles
+        moitie_1 = np.concatenate((range(0, int(nb_sites/10)),range(2*int(nb_sites/10), 3*int(nb_sites/10)), range(4*int(nb_sites/10), 5*int(nb_sites/10)), range(6*int(nb_sites/10), 7*int(nb_sites/10)), range(8*int(nb_sites/10), 9*int(nb_sites/10))))
+        moitie_2 = np.concatenate((range(int(nb_sites/10), 2*int(nb_sites/10)),range(3*int(nb_sites/10), 4*int(nb_sites/10)),range(5*int(nb_sites/10), 6*int(nb_sites/10)),range(7*int(nb_sites/10), 8*int(nb_sites/10)), range(9*int(nb_sites/10), 10*int(nb_sites/10))))
+    if condition_initiale == 'unitaire' :           # Pour avoir une répartition d'un allèle par site (en alternance)
+        moitie_1 = range(0, nb_sites,2)
+        moitie_2 = range(1, nb_sites,2)
+       
     matrice0[0, moitie_1] = positions_sources[moitie_1]
     matrice0[1, moitie_2] = positions_sources[moitie_2]
     return(matrice0)
-
-
-
 
    
 # Fonction d'apparition des nouvelles sources
@@ -184,16 +189,16 @@ def evolution(nb_sites, nb_alleles, temps):
 
 
 # =============================================================================
-# Simulation des hivers (une partie de la population meurt)
+# Simulation des années (une partie de la population meurt entre décembre et septembre)
 # =============================================================================
     
     
     
-# Retourne la matrice initiale au printemps,  
+# Retourne la matrice initiale début septembre,  
 # qui contient uniquement les jauges encore présentes si jauge = 'complete', 
 # qui contient uniquement un individu pour chaque jauge encore présente si jauge = 'unie'
 # /!\ ne fonctionne qu'avec deux allèles
-def matrice_printemps(matrice, jauge):
+def matrice_septembre(matrice, jauge):
     #Position des nouvelles sources pour la nouvelle année
     apparition_sources = np.random.binomial(1, proba_nourriture, nb_sites)  # Donne les emplacements où nouvelle nourriture
     jauge_existante = sum(matrice[0:nb_alleles,:]) != 0                     # Donne les emplacement où une jauge était présente
@@ -214,7 +219,7 @@ def matrice_printemps(matrice, jauge):
 
 
 
-# Fonction d'évolution en fonction du temps et de la matrice initiale fournie à chaque printemps (ne trace rien)
+# Fonction d'évolution en fonction du temps et de la matrice initiale fournie à chaque début septembre (ne trace rien)
 def evolution_itere(matrice):
     for i in range(0,temps) :
         matrice = nouvelles_sources(matrice)
@@ -225,16 +230,16 @@ def evolution_itere(matrice):
 
 
 
-# Dessine l'histogramme avant et après chaque hiver
+# Dessine l'histogramme avant et après chaque automne
 def evolution_annees(nb_sites, nb_alleles, nb_annees, temps_annees):
     matrice = initialisation(nb_sites, nb_alleles)
     histogramme(matrice)
-    print("Environnement au début de l'année 0")
+    print("Environnement au début de l'année 1")
     matrice = evolution_itere(matrice)
     histogramme(matrice)
-    print ("Environnement à la fin de l'année 0")
-    for i in range(1,nb_annees+1):
-        matrice = matrice_printemps(matrice, jauge)
+    print ("Environnement à la fin de l'année 1")
+    for i in range(2,nb_annees+1):
+        matrice = matrice_septembre(matrice, jauge)
         histogramme(matrice)
         print("Environnement au début de l'année %i" %i)
         matrice = evolution_itere(matrice)
@@ -268,7 +273,7 @@ def histogramme(matrice):
     positions = np.arange(nb_sites)
     bins = [x - 0.5 for x in range(0, nb_sites+1)]
     plt.hist([positions, positions], bins = bins, weights = [matrice[0,:]*100, matrice[1,:]*100],
-            edgecolor = 'black', histtype = 'barstacked', label = ['allèle 1', 'allèle 2'])
+             histtype = 'barstacked', label = ['allèle 1', 'allèle 2'])    
     plt.ylim(0, 100)
     plt.ylabel('Pourcentage')
     plt.xlabel('Sites')
@@ -284,11 +289,12 @@ def histogramme(matrice):
 # Etude de l'évolution de la répartition des allèles en temps
 # =============================================================================
 
-nb_sites = 100              # Nombres de sites dans l'environnement
-nb_alleles = 2              # Nombres d'allèles étudiés
+nb_sites = 100                       # Nombres de sites dans l'environnement
+nb_alleles = 2                        # Nombres d'allèles étudiés
+condition_initiale = 'moitie'       # Répartition initiale des allèles ('moitie' ou 'alternee' ou 'unitaire')
 
-proba_nourriture = 0.2               # Proba d'pparition de la nourriture   
-proba_disparition_nourriture = 0.1  # Proba qu'une source non colonisée disparaisse   
+proba_nourriture = 0.2                 # Proba d'pparition de la nourriture   
+proba_disparition_nourriture = 0.1     # Proba qu'une source non colonisée disparaisse   
 
 score_nouvelle_source = 3     # Score des sources 
 score_migration = 0
@@ -308,16 +314,16 @@ affiche_tous_les_histogrammes = 'non'      # Afficher les histogrammes à chaque
 
 nb_annees  = 5
 temps_annees = 120
-jauge = 'unie'             # 'unie' : A chaque printemps, on ne prends en compte qu'un individu par jauges encore présentes.
-                               # 'complete' :  A chaque printemps, on ne prends en compte que les jauges encore présentes.
+jauge = 'unie'                 # 'unie' : A chaque début septembre, on ne prends en compte qu'un individu par jauges encore présentes.
+                               # 'complete' :  A chaque début septembre, on ne prends en compte que les jauges encore présentes.
 
 
 
 
-# Temps continu (sans prendre en compte l'hiver)
+# Temps continu (sans interruption temporelle)
 matrice_1 = evolution(nb_sites, nb_alleles, temps)   
 
-# Pour voir l'évolution sur plusieurs années (entre-coupées d'hivers)
+# Pour voir l'évolution sur plusieurs années (entre-coupées de 8 mois de non évolution)
 matrice_2 = evolution_annees(nb_sites, nb_alleles, nb_annees, temps_annees)
 
 
